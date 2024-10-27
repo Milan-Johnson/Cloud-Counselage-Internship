@@ -13,7 +13,6 @@ pipeline{
         DOCKER_PASS = 'Docker-CCI'
         IMAGE_NAME = "${DOCKER_USER}" + "/" + "${APP_NAME}"
         IMAGE_TAG = "${RELEASE}-${BUILD_NUMBER}"
-        // JENKINS_API_TOKEN = credentials("JENKINS_API_TOKEN")
 
     }
   
@@ -42,12 +41,11 @@ pipeline{
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv(credentialsId: 'cci-aws') {
-                // withSonarQubeEnv(credentialsId:'cci-aws') {
                     sh '''mvn clean package sonar:sonar''' 
                 }
             }
         }
-         stage("Quality Gate") {
+        stage("Quality Gate") {
             steps {
                 timeout(time: 3, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
@@ -55,7 +53,7 @@ pipeline{
                 }
             }
         }
-                stage("Docker build") {
+        stage("Docker build") {
             steps{
                 sh "sudo docker version"
                 sh "sudo docker build -t ${IMAGE_NAME} ."
@@ -63,10 +61,19 @@ pipeline{
                 sh "docker tag ${IMAGE_NAME} ${IMAGE_TAG}:latest"
             }
         }
-
-        
-        
-
-        
+        stage("Docker push") {
+            steps{
+                withCredentials([string(credentialsId: 'cci-docker-token', variable: 'DOCKER_PSD')]){
+                    sh "sudo docker login -u ${DOCKER_USER} -p ${DOCKER_PSD}"
+                }
+                sh "sudo docker push ${IMAGE_NAME}:${IMAGE_TAG} "
+                sh "sudo docker push ${IMAGE_NAME}:latest "                
+            }
+        }
+        stage("Kubernetes Deployment") {
+            steps{
+                sh 'kubectl apply -f k8s-spring-boot-deployment.yml'
+            }
+        }
     }
 }
