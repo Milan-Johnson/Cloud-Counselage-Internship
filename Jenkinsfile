@@ -73,6 +73,7 @@ pipeline{
         stage("Kubernetes Deployment") {
             steps{
                 sh 'kubectl apply -f deployment.yml'
+                sh 'kubectl set image deployment/cci-springboot springboot=milanjohnson/cci-project:${IMAGE_TAG}'
             }
         }
     }
